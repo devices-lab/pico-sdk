@@ -11,24 +11,34 @@
 #
 # Usage:
 #
-# tools/build_all_headers.py <root of source tree> <output file>
-
+# tools/build_all_headers.py <root of source tree> <output file> --ignore <optional path 1> <optional path 2/**> ...
 
 import os
 import sys
+import fnmatch
 
-IGNORE_DIRS = set(['host', 'boards'])
-IGNORE_DIRS.add('common/boot_picoboot')
-IGNORE_DIRS.add('common/boot_uf2')
-IGNORE_DIRS.add('common/pico_usb_reset_interface')
-IGNORE_DIRS.add('rp2_common/cmsis')
-IGNORE_DIRS.add('rp2_common/pico_async_context')
-IGNORE_DIRS.add('rp2_common/pico_btstack')
-IGNORE_DIRS.add('rp2_common/pico_cyw43_arch')
-IGNORE_DIRS.add('rp2_common/pico_cyw43_driver')
-IGNORE_DIRS.add('rp2_common/pico_lwip')
-IGNORE_DIRS.add('rp2_common/pico_stdio_semihosting')
-IGNORE_DIRS.add('rp2_common/pico_stdio_usb')
+# Add as neccessary, or pass with the optional --ignore
+# globs like 'rp2350/**' also work
+IGNORE_DIRS = set([
+    'host', 'boards',
+    'common/boot_picoboot',
+    'common/boot_uf2',
+    'common/pico_usb_reset_interface',
+    'rp2_common/cmsis',
+    'rp2_common/pico_async_context',
+    'rp2_common/pico_btstack',
+    'rp2_common/pico_cyw43_arch',
+    'rp2_common/pico_cyw43_driver',
+    'rp2_common/pico_lwip',
+    'rp2_common/pico_stdio_semihosting',
+    'rp2_common/pico_stdio_usb'
+])
+
+if '--ignore' in sys.argv:
+    idx = sys.argv.index('--ignore')
+    user_provided_ignores = sys.argv[idx + 1:]
+    sys.argv = sys.argv[:idx]
+    IGNORE_DIRS.update(user_provided_ignores)
 
 if len(sys.argv) != 3:
     print("Usage: {} top_dir output_header".format(os.path.basename(sys.argv[0])))
@@ -45,7 +55,10 @@ include_dirs = set()
 for root, dirs, files in os.walk(top_dir):
     prune_dirs = []
     for d in dirs:
-        if os.path.relpath(os.path.join(root, d), top_dir) in IGNORE_DIRS:
+        rel_path = os.path.relpath(os.path.join(root, d), top_dir)
+
+        # Check against all glob patterns:
+        if any(fnmatch.fnmatch(rel_path, pat) for pat in IGNORE_DIRS):
             prune_dirs.append(d)
     for d in prune_dirs:
         dirs.remove(d)
